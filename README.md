@@ -24,3 +24,7 @@ The following MCU boards are supported for Amazon FreeRTOS:
 
 ## amazon-freeRTOS/projects
 The ```./projects``` folder contains the IDE test and demo projects for Cypress boards. The majority of boards can be built with both IDE and cmake (there are some exceptions!). Please refer to the Getting Started Guides above for board specific instructions.
+
+## apsta specific instructions
+
+This example does not contain a DHCP server for the AP interface. So, the connection will only get through if you use a static IP configuration in STA side.
