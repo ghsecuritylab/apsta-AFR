@@ -55,13 +55,13 @@
  *
  * @todo If you are using Wi-Fi, set this to your network name.
  */
-#define clientcredentialWIFI_SSID                    ""
+#define clientcredentialWIFI_SSID                    "CY-IOT-HOTSPOT"//CY-IOT-HOTSPOTDr. Sheldon Lee Cooper
 
 /*
  * @brief Password needed to join Wi-Fi network.
  * @todo If you are using WPA, set this to your network password.
  */
-#define clientcredentialWIFI_PASSWORD                ""
+#define clientcredentialWIFI_PASSWORD                "10tl@b123" //tupur.raktim
 
 /*
  * @brief Wi-Fi network security type.

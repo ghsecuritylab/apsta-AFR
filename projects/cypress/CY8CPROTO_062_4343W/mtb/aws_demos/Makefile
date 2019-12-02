@@ -93,7 +93,7 @@ SOURCES=
 INCLUDES=
 
 # Add additional defines to the build process (without a leading -D).
-DEFINES=CYBSP_WIFI_CAPABLE CY_RTOS_AWARE CY_USE_LWIP
+DEFINES=CYBSP_WIFI_CAPABLE CY_RTOS_AWARE CY_USE_LWIP 
 
 # Select softfp or hardfp floating point. Default is softfp. 
 VFP_SELECT=

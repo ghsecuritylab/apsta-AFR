@@ -4,7 +4,8 @@
 * Description:
 * Peripheral Hardware Block configuration
 * This file was automatically generated and should not be modified.
-* 
+* Device Support Library (../../../../../../psoc6/psoc6pdl): 1.3.1.1499
+*
 ********************************************************************************
 * Copyright 2017-2019 Cypress Semiconductor Corporation
 * SPDX-License-Identifier: Apache-2.0
@@ -144,23 +145,23 @@ void init_cycfg_peripherals(void)
 
 	Cy_SysClk_PeriphAssignDivider(PCLK_SCB2_CLOCK, CY_SYSCLK_DIV_8_BIT, 3U);
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_BT_UART_obj);
+	cyhal_hwmgr_reserve(&CYBSP_BT_UART_obj);
 #endif //defined (CY_USING_HAL)
 
 	Cy_SysClk_PeriphAssignDivider(PCLK_SCB3_CLOCK, CY_SYSCLK_DIV_8_BIT, 1U);
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_CSD_COMM_obj);
+	cyhal_hwmgr_reserve(&CYBSP_CSD_COMM_obj);
 #endif //defined (CY_USING_HAL)
 
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_QSPI_obj);
+	cyhal_hwmgr_reserve(&CYBSP_QSPI_obj);
 #endif //defined (CY_USING_HAL)
 
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_MCWDT0_obj);
+	cyhal_hwmgr_reserve(&CYBSP_MCWDT0_obj);
 #endif //defined (CY_USING_HAL)
 
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_RTC_obj);
+	cyhal_hwmgr_reserve(&CYBSP_RTC_obj);
 #endif //defined (CY_USING_HAL)
 }

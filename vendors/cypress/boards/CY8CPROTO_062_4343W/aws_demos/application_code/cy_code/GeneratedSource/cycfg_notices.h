@@ -5,7 +5,8 @@
 * Contains warnings and errors that occurred while generating code for the
 * design.
 * This file was automatically generated and should not be modified.
-* 
+* Device Support Library (../../../../../../psoc6/psoc6pdl): 1.3.1.1499
+*
 ********************************************************************************
 * Copyright 2017-2019 Cypress Semiconductor Corporation
 * SPDX-License-Identifier: Apache-2.0

@@ -31,11 +31,14 @@
 #include <whd.h>
 #include <whd_wifi_api.h>
 #include <whd_network_types.h>
+#include <whd_int.h>
 
 /* Board and Abstraction layer includes */
 #include <cyabs_rtos.h>
+#include <cybsp_wifi.h>
 
 extern whd_interface_t primaryInterface;
+extern whd_interface_t secondaryInterface;
 extern cy_mutex_t wifiMutex;
 extern WIFIDeviceMode_t devMode;
 extern bool isConnected;

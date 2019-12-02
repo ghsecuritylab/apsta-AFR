@@ -407,6 +407,7 @@ WIFIReturnCode_t WIFI_GetIP( uint8_t * pucIPAddr );
  * @return @ref eWiFiSuccess if the MAC address was successfully retrieved, failure code
  * otherwise. The returned MAC address must be 6 consecutive bytes with no delimitters.
  */
+WIFIReturnCode_t WIFI_GetGW(uint8_t *pucIPAddr );
 /* @[declare_wifi_wifi_getmac] */
 WIFIReturnCode_t WIFI_GetMAC( uint8_t * pucMac );
 /* @[declare_wifi_wifi_getmac] */

@@ -70,12 +70,12 @@
 /**
  * @brief Soft Access point SSID
  */
-#define wificonfigACCESS_POINT_SSID_PREFIX    ( "Enter SSID for Soft AP" )
+#define wificonfigACCESS_POINT_SSID_PREFIX    ( "WICED Device" )
 
 /**
  * @brief Soft Access point Passkey
  */
-#define wificonfigACCESS_POINT_PASSKEY        ( "Enter Password for Soft AP" )
+#define wificonfigACCESS_POINT_PASSKEY        ( "abcd1234" )
 
 /**
  * @brief Soft Access point Channel

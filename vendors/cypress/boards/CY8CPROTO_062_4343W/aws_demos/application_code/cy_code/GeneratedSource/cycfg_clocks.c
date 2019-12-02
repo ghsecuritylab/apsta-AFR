@@ -4,7 +4,8 @@
 * Description:
 * Clock configuration
 * This file was automatically generated and should not be modified.
-* 
+* Device Support Library (../../../../../../psoc6/psoc6pdl): 1.3.1.1499
+*
 ********************************************************************************
 * Copyright 2017-2019 Cypress Semiconductor Corporation
 * SPDX-License-Identifier: Apache-2.0
@@ -56,20 +57,20 @@ void init_cycfg_clocks(void)
 	Cy_SysClk_PeriphSetDivider(CY_SYSCLK_DIV_8_BIT, 0U, 255U);
 	Cy_SysClk_PeriphEnableDivider(CY_SYSCLK_DIV_8_BIT, 0U);
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_CSD_CLK_DIV_obj);
+	cyhal_hwmgr_reserve(&CYBSP_CSD_CLK_DIV_obj);
 #endif //defined (CY_USING_HAL)
 
 	Cy_SysClk_PeriphDisableDivider(CY_SYSCLK_DIV_8_BIT, 1U);
 	Cy_SysClk_PeriphSetDivider(CY_SYSCLK_DIV_8_BIT, 1U, 3U);
 	Cy_SysClk_PeriphEnableDivider(CY_SYSCLK_DIV_8_BIT, 1U);
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_CSD_COMM_CLK_DIV_obj);
+	cyhal_hwmgr_reserve(&CYBSP_CSD_COMM_CLK_DIV_obj);
 #endif //defined (CY_USING_HAL)
 
 	Cy_SysClk_PeriphDisableDivider(CY_SYSCLK_DIV_8_BIT, 3U);
 	Cy_SysClk_PeriphSetDivider(CY_SYSCLK_DIV_8_BIT, 3U, 35U);
 	Cy_SysClk_PeriphEnableDivider(CY_SYSCLK_DIV_8_BIT, 3U);
 #if defined (CY_USING_HAL)
-		cyhal_hwmgr_reserve(&CYBSP_BT_UART_CLK_DIV_obj);
+	cyhal_hwmgr_reserve(&CYBSP_BT_UART_CLK_DIV_obj);
 #endif //defined (CY_USING_HAL)
 }

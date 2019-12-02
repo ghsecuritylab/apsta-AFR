@@ -70,6 +70,7 @@ typedef struct
 } whd_scan_userdata_t;
 
 whd_interface_t primaryInterface;
+whd_interface_t secondaryInterface;
 cy_mutex_t wifiMutex;
 WIFIDeviceMode_t devMode = eWiFiModeNotSupported;
 bool isConnected = false;
@@ -78,6 +79,7 @@ bool isPoweredUp = false;
 static whd_scan_userdata_t internalScanData;
 static whd_scan_result_t internalScanResult;
 static cy_semaphore_t scanSema;
+
 
 static WIFIPMMode_t whd_topmmode(uint32_t mode)
 {
@@ -314,6 +316,10 @@ WIFIReturnCode_t WIFI_SetMode( WIFIDeviceMode_t xDeviceMode )
         switch(xDeviceMode)
         {
             case eWiFiModeAP:
+            	{
+            		devMode = xDeviceMode;
+            	}
+            	break;
             case eWiFiModeStation:
                 ret = WIFI_Reset();
                 if (ret == eWiFiSuccess)
@@ -450,14 +456,14 @@ WIFIReturnCode_t WIFI_NetworkDelete( uint16_t usIndex )
     }
     return eWiFiSuccess;
 }
-/*-----------------------------------------------------------*/
-
-WIFIReturnCode_t WIFI_Ping( uint8_t * pucIPAddr,
-                            uint16_t usCount,
-                            uint32_t ulIntervalMS )
-{
-    return eWiFiNotSupported;
-}
+///*-----------------------------------------------------------*/
+//
+//WIFIReturnCode_t WIFI_Ping( uint8_t * pucIPAddr,
+//                            uint16_t usCount,
+//                            uint32_t ulIntervalMS )
+//{
+//    return eWiFiNotSupported;
+//}
 /*-----------------------------------------------------------*/
 
 WIFIReturnCode_t WIFI_GetMAC( uint8_t * pucMac )
@@ -493,6 +499,13 @@ WIFIReturnCode_t WIFI_ConfigureAP( const WIFINetworkParams_t * const pxNetworkPa
     uint8_t keylen;
     whd_security_t security;
     uint8_t channel;
+    whd_driver_t whd_driver;
+//    whd_interface_t secondaryInterface;
+    whd_mac_t mac_addr = {
+    	    .octet = { 0x00, 0x12, 0xFE, 0xED, 0xBE, 0xAD }
+    	};
+//    secondaryInterface->role = WHD_AP_ROLE;
+//    whd_interface_t primaryInterface;
 
     cy_check_network_params(pxNetworkParams);
 
@@ -507,12 +520,19 @@ WIFIReturnCode_t WIFI_ConfigureAP( const WIFINetworkParams_t * const pxNetworkPa
     {
         cy_convert_network_params(pxNetworkParams, &ssid, &key, &keylen, &security, &channel);
 
-        if (whd_wifi_init_ap(primaryInterface, &ssid, security, key, keylen, channel) != CY_RSLT_SUCCESS)
+        whd_driver = cybsp_get_wifi_driver();
+        whd_add_secondary_interface(whd_driver, &mac_addr, &secondaryInterface );
+
+        if (whd_wifi_init_ap(secondaryInterface, &ssid, security, key, keylen, channel) != CY_RSLT_SUCCESS)
         {
             cy_rtos_set_mutex(&wifiMutex);
             return eWiFiFailure;
         }
         devMode = eWiFiModeAP;
+//        while( WIFI_StartAP() != eWiFiSuccess )
+//    	{
+//    		configPRINTF(( " Starting the softAP failed  \r\n" ));
+//    	}
         if (cy_rtos_set_mutex(&wifiMutex) != CY_RSLT_SUCCESS)
         {
             return eWiFiFailure;
@@ -524,6 +544,8 @@ WIFIReturnCode_t WIFI_ConfigureAP( const WIFINetworkParams_t * const pxNetworkPa
     }
     return eWiFiSuccess;
 }
+
+
 /*-----------------------------------------------------------*/
 
 WIFIReturnCode_t WIFI_SetPMMode( WIFIPMMode_t xPMModeType,

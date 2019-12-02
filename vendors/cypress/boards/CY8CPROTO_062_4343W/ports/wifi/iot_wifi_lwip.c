@@ -1,5 +1,4 @@
-/*
- * Amazon FreeRTOS Wi-Fi V1.0.0
+ /* Amazon FreeRTOS Wi-Fi V1.0.0
  * Copyright (C) 2018 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
@@ -49,6 +48,8 @@
 #include "whd_wifi_api.h"
 #include "whd_network_types.h"
 
+#define CY_USE_LWIP
+
 #if defined(CY_USE_LWIP)
 
 /* lwIP stack includes */
@@ -65,6 +66,8 @@
 #include <lwip/tcpip.h>
 #include <lwip/ethip6.h>
 #include <lwip/igmp.h>
+#include <lwip/icmp.h>
+#include <lwip/inet_chksum.h>
 #include <netif/ethernet.h>
 
 #define MULTICAST_IP_TO_MAC(ip)       { (uint8_t) 0x01,             \
@@ -77,6 +80,8 @@
 
 #define CY_MAX_DHCP_ITERATION_COUNT        (1000)
 #define CY_DHCP_NOT_COMPLETE               (3)
+#define PING_ID              (0xAFAF)
+#define PING_DATA_SIZE       (32)      /** ping additional data size to include in the packet */
 
 /** Static IP address structure */
 typedef struct
@@ -92,12 +97,31 @@ static ip_static_addr_t staticAddr =
     IPADDR4_INIT_BYTES(configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3),
     IPADDR4_INIT_BYTES(configGATEWAY_ADDR0, configGATEWAY_ADDR1, configGATEWAY_ADDR2, configGATEWAY_ADDR3)
 };
+static struct netif     sta_ip_handle;
+#define STA_IP_HANDLE	&sta_ip_handle
+struct netif *ip_handle[ 3 ] =
+{
+    [WHD_STA_ROLE] = STA_IP_HANDLE,
+    [WHD_AP_ROLE]  = NULL,
+};
+#define IP_HANDLE(interface)   (ip_handle[(interface) & 3])
+
+
+
 
 static struct netif *netInterface = NULL;
 static bool isNetworkUp = false;
 static bool isNetifAdded = false;
 static bool isApStarted = false;
 static bool isDhcpEnabled = false;
+//struct icmp_packet
+//{
+//    struct icmp_echo_hdr hdr;
+//    uint8_t data[PING_DATA_SIZE];
+//
+//};
+//static struct icmp_packet ping_packet;
+static uint16_t     ping_seq_num;
 
 /*----------------------- lwIP Helpers -------------------------------*/
 
@@ -455,6 +479,239 @@ WIFIReturnCode_t WIFI_GetIP( uint8_t * pucIPAddr )
     return eWiFiSuccess;
 }
 
+
+/*-----------------------------------------------------------*/
+WIFIReturnCode_t WIFI_GetGW(uint8_t *pucIPAddr)
+{
+	configASSERT(pucIPAddr != NULL);
+	if (cy_rtos_get_mutex(&wifiMutex, wificonfigMAX_SEMAPHORE_WAIT_TIME_MS) == CY_RSLT_SUCCESS)
+	{
+		if (pucIPAddr == NULL && netInterface == NULL)
+		{
+			cy_rtos_set_mutex(&wifiMutex);
+			return eWiFiFailure;
+		}
+		memcpy(pucIPAddr, &netInterface ->gw.u_addr.ip4, sizeof(netInterface->gw.u_addr.ip4));
+		if (cy_rtos_set_mutex(&wifiMutex) != CY_RSLT_SUCCESS)
+		{
+			return eWiFiFailure;
+		}
+	}
+	else
+	    {
+	        return eWiFiTimeout;
+	    }
+	    return eWiFiSuccess;
+}
+static void ping_prepare_echo( struct icmp_echo_hdr *iecho, uint16_t len )
+{
+    int i, payload_size;
+
+    payload_size = len - sizeof(struct icmp_echo_hdr);
+
+    ICMPH_TYPE_SET(iecho, ICMP_ECHO);
+    ICMPH_CODE_SET(iecho, 0);
+    iecho->chksum = 0;
+    iecho->id = PING_ID;
+    iecho->seqno = htons( ++ping_seq_num );
+
+    /* fill the additional data buffer with some data */
+    for ( i = 0; i < payload_size; i++ )
+    {
+    	 ( (char *)iecho )[sizeof(struct icmp_echo_hdr) + i] = i;
+    }
+
+    iecho->chksum = inet_chksum(iecho, len);
+}
+
+#if 0
+WIFIReturnCode_t ping_send(int socket_handle, ip_addr_t *IPAddr )
+{
+	int err;
+	struct sockaddr_in to;
+	struct icmp_packet *iecho = &ping_packet;
+
+
+	/* Construct ping request */
+	ping_prepare_echo( iecho, sizeof(ping_packet) );
+
+	/* Send the ping request */
+	to.sin_len         = sizeof( to );
+	to.sin_family      = AF_INET;
+	to.sin_addr.s_addr = (htonl(IPAddr ->u_addr.ip4.addr));
+
+	err = lwip_sendto( socket_handle, iecho, sizeof(ping_packet), 0, (struct sockaddr*) &to, sizeof( to ) );
+
+	return ( err ? ERR_OK : ERR_VAL );
+
+}
+#endif
+static err_t ping_recv( int socket_handle )
+{
+    char                  buf[64];
+    int                   fromlen;
+    int                   len;
+    struct sockaddr_in    from;
+    struct ip_hdr*        iphdr;
+    struct icmp_echo_hdr* iecho;
+
+    do
+    {
+        len = lwip_recvfrom( socket_handle, buf, sizeof( buf ), 0, (struct sockaddr*) &from, (socklen_t*) &fromlen );
+
+        if ( len >= (int) ( sizeof(struct ip_hdr) + sizeof(struct icmp_echo_hdr) ) )
+        {
+            iphdr = (struct ip_hdr *) buf;
+            iecho = (struct icmp_echo_hdr *) ( buf + ( IPH_HL( iphdr ) * 4 ) );
+
+            if ( ( iecho->id == PING_ID ) &&
+                 ( iecho->seqno == lwip_htons( ping_seq_num ) ) &&
+                 ( ICMPH_TYPE( iecho ) == ICMP_ER ) )
+            {
+                return ERR_OK; /* Echo reply received - return success */
+            }
+        }
+    } while (len > 0);
+
+    return ERR_TIMEOUT; /* No valid echo reply received before timeout */
+}
+
+WIFIReturnCode_t WIFI_Ping( uint8_t * pucIPAddr,
+                            uint16_t usCount,
+                            uint32_t ulIntervalMS )
+{
+	int result = 0;
+	int i = 0, len = 300;
+	configASSERT(pucIPAddr != NULL || usCount != 0);
+	ip_addr_t target;
+	whd_time_t send_time, curr_time;
+	struct sockaddr_in host_addr;
+
+	if (cy_rtos_get_mutex(&wifiMutex, wificonfigMAX_SEMAPHORE_WAIT_TIME_MS) == CY_RSLT_SUCCESS)
+	{
+		target.u_addr.ip4.addr= netif_ip4_gw(netInterface)->addr;
+		configPRINTF(("Pinging: %s\n", ipaddr_ntoa(&target)));
+
+		host_addr.sin_addr.s_addr = target.u_addr.ip4.addr;
+		host_addr.sin_len = sizeof(host_addr);
+		host_addr.sin_family = AF_INET;
+
+		/*Open a socket for pinging */
+		int socket_for_ping = lwip_socket(AF_INET, SOCK_RAW, IP_PROTO_ICMP);
+		if(socket_for_ping < 0)
+		{
+			configPRINTF(("unable to create socket for ping\r\n"));
+			return eWiFiFailure;
+		}
+
+		/* Set the receive timeout on local socket so pings will time out. */
+		lwip_setsockopt( socket_for_ping, SOL_SOCKET, SO_RCVTIMEO, &ulIntervalMS, sizeof( ulIntervalMS ) );
+
+
+
+
+		/* Set to default the requested interface */
+
+//		netifapi_netif_set_default(IP_HANDLE(WHD_STA_ROLE));
+//		netifapi_netif_add(
+//		            netInterface,
+//		            0,
+//		            0,
+//		            0,
+//		            primaryInterface,
+//		            ethernetif_init,
+//		            tcpip_input);
+#if 0
+		netifapi_netif_set_up(netInterface);
+
+		for (i = 0; i <= usCount; i++)
+		{
+
+			result = ping_send(socket_for_ping, &target);
+
+			if (result != eWiFiSuccess)
+			{
+				/* close a socket */
+				lwip_close( socket_for_ping );
+				cy_rtos_set_mutex(&wifiMutex);
+				configPRINTF(("Unable to send Ping\r\n"));
+				return eWiFiFailure;
+			}
+			/* Record time ping was sent */
+			cy_rtos_get_time(&send_time);
+
+			/* Wait for ping reply */
+			result = ping_recv( socket_for_ping );
+			if (ERR_OK == result)
+			{
+				cy_rtos_get_time(&curr_time);
+				configPRINTF( ("Ping Reply %dms\n", (int)(curr_time - send_time) ) );
+			}
+			else
+			{
+				configPRINTF( ("Ping timeout\n") );
+			}
+#endif
+			struct icmp_echo_hdr *iecho;
+			uint16_t ping_size = sizeof(struct icmp_echo_hdr) + len;
+
+			/*Allocate memory for packet */
+			if (!(iecho = mem_malloc(ping_size)))
+			{
+				return ERR_MEM;
+
+			}
+
+			/*Construct ping request */
+			ping_prepare_echo(iecho, ping_size);
+
+			while (i <= usCount)
+			{
+				cy_rtos_get_time(&send_time);
+
+				netif_set_default(netInterface);
+
+				if (lwip_sendto(socket_for_ping, iecho, ping_size, 0, (struct sockaddr *)&host_addr, host_addr.sin_len) > 0)
+				{
+					/* Wait for ping reply */
+					err_t result = ping_recv(socket_for_ping);
+					cy_rtos_get_time(&curr_time);
+					if (ERR_OK == result)
+					{
+						whd_time_t ping_time = curr_time - send_time;
+						configPRINTF(("Ping reply %d ms\r\n", (int)ping_time));
+
+					}
+
+					/* Sleep until time for next ping */
+					sys_msleep(1000);
+				}
+
+				else
+				{
+					configPRINTF(("Ping timeout \r\n"));
+				}
+
+				i++;
+			}
+
+			mem_free(iecho);
+
+
+
+
+		/* close a socket */
+		lwip_close( socket_for_ping );
+
+		return result;
+	}
+
+	if (cy_rtos_set_mutex(&wifiMutex) != CY_RSLT_SUCCESS)
+	{
+		return eWiFiFailure;
+	}
+	return eWiFiSuccess;
+}
 /*-----------------------------------------------------------*/
 
 WIFIReturnCode_t WIFI_GetHostIP( char * pcHost,
@@ -520,11 +777,14 @@ WIFIReturnCode_t WIFI_GetHostIP( char * pcHost,
 
 WIFIReturnCode_t WIFI_StartAP( void )
 {
+//	whd_interface_t secondaryInterface;
+
     if (!isApStarted)
     {
         if (cy_rtos_get_mutex(&wifiMutex, wificonfigMAX_SEMAPHORE_WAIT_TIME_MS) == CY_RSLT_SUCCESS)
         {
-            cy_rslt_t res = whd_wifi_start_ap(primaryInterface);
+
+            cy_rslt_t res = whd_wifi_start_ap(secondaryInterface);
             if (res != CY_RSLT_SUCCESS)
             {
                 configPRINTF(("Failed to start AP.\n"));
@@ -535,7 +795,7 @@ WIFIReturnCode_t WIFI_StartAP( void )
 
             if (!isNetworkUp)
             {
-                if (network_stack_bringup(primaryInterface, &staticAddr) !=  eWiFiSuccess)
+                if (network_stack_bringup(secondaryInterface, &staticAddr) !=  eWiFiSuccess)
                 {
                     configPRINTF(("Failed to bring up network stack\n"));
                     cy_rtos_set_mutex(&wifiMutex);
@@ -587,6 +847,7 @@ WIFIReturnCode_t WIFI_StopAP( void )
     }
     return eWiFiSuccess;
 }
+
 
 /*-----------------------------------------------------------*/
 #endif /* CY_USE_LWIP */

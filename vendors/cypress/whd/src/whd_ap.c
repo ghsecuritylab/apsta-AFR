@@ -622,7 +622,7 @@ uint32_t whd_wifi_start_ap(whd_interface_t ifp)
     CHECK_RETURN_WITH_SEMAPHORE(whd_cdc_send_iovar(prim_ifp, CDC_SET, buffer, 0), &ap->whd_wifi_sleep_flag);
 
     /* Wait until AP is brought up */
-    CHECK_RETURN_WITH_SEMAPHORE(cy_rtos_get_semaphore(&ap->whd_wifi_sleep_flag, (uint32_t)10000,
+    CHECK_RETURN_WITH_SEMAPHORE(cy_rtos_get_semaphore(&ap->whd_wifi_sleep_flag, (uint32_t)20000,
                                                       WHD_FALSE), &ap->whd_wifi_sleep_flag);
     ap->is_waiting_event = WHD_FALSE;
 

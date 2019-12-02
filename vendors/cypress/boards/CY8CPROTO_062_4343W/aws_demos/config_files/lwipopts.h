@@ -245,6 +245,8 @@
 #endif
 #define MEMP_NUM_NETCONN               (18)
 
+#define LWIP_SO_RCVTIMEO               	1
+
 /**
  * LWIP_TCP_KEEPALIVE==1: Enable TCP_KEEPIDLE, TCP_KEEPINTVL and TCP_KEEPCNT
  * options processing. Note that TCP_KEEPIDLE and TCP_KEEPINTVL have to be set
@@ -285,5 +287,6 @@
  * Currently, the pbuf_custom code is only needed for one specific configuration
  * of IP_FRAG, unless required by external driver/application code. */
 #define LWIP_SUPPORT_CUSTOM_PBUF        1
+
 
 #endif /* ifdef CUSTOM_LWIPOPTS */

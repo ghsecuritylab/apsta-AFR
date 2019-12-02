@@ -3299,7 +3299,7 @@
  * ICMP_DEBUG: Enable debugging in icmp.c.
  */
 #if !defined ICMP_DEBUG || defined __DOXYGEN__
-#define ICMP_DEBUG                      LWIP_DBG_OFF
+#define ICMP_DEBUG                      LWIP_DBG_ON
 #endif
 
 /**

@@ -59,12 +59,16 @@
  * failure status before blocking indefinitely. */
 #define mainLOGGING_WIFI_STATUS_DELAY       pdMS_TO_TICKS( 1000 )
 
+#define apSTA_DELAY							pdMS_TO_TICKS( 1000 )
+
 /* Unit test defines. */
 #define mainTEST_RUNNER_TASK_STACK_SIZE     ( configMINIMAL_STACK_SIZE * 16 )
 
 /* The name of the devices for xApplicationDNSQueryHook. */
 #define mainDEVICE_NICK_NAME				"cypress_demo" /* FIX ME.*/
 
+///*Enable or Disable Scanning */
+//#define SCAN								( 0 )
 
 /* Static arrays for FreeRTOS-Plus-TCP stack initialization for Ethernet network
  * connections are declared below. If you are using an Ethernet connection on your MCU
@@ -145,7 +149,7 @@ static void prvMiscInitialization( void );
  * @brief Application runtime entry point.
  */
 int main( void )
-{
+ {
     /* Perform any hardware initialization that does not require the RTOS to be
      * running.  */
     prvMiscInitialization();
@@ -207,15 +211,70 @@ void vApplicationDaemonTaskStartupHook( void )
         /* Connect to the Wi-Fi before running the tests. */
         prvWifiConnect();
 
+#ifdef SCAN
+        /* Scan nearby Access Points */
+          prvWifiScan();
+#endif
+
         /* Provision the device with AWS certificate and private key. */
-        vDevModeKeyProvisioning();
+//        vDevModeKeyProvisioning();
 
         /* Start the demo tasks. */
-        DEMO_RUNNER_RunDemos();
+//        DEMO_RUNNER_RunDemos();
+
     }
 }
 /*-----------------------------------------------------------*/
+#ifdef SCAN
+void prvWifiScan(void)
+{
+	WIFINetworkParams_t xNetworkParams;
+	WIFIReturnCode_t xWifiStatus;
 
+	configPRINT( ("Turning on wifi...\n") );
+	xWifiStatus = WIFI_On();
+
+	configPRINT( ("Checking status...\n") );
+	if( xWifiStatus == eWiFiSuccess )
+	{
+	    configPRINT( ("WiFi module initialized.\n") );
+	}
+	else
+	{
+	    configPRINTF( ("WiFi module failed to initialize.\n" ) );
+	    // Handle module init failure
+	}
+
+	WIFI_SetMode(eWiFiModeStation);
+
+	/* Some boards might require additional initialization steps to use the Wi-Fi library. */
+
+	while (1)
+	{
+	    configPRINT( ("Starting scan\n") );
+	    const uint8_t ucNumNetworks = 12; //Get 12 scan results
+	    WIFIScanResult_t xScanResults[ ucNumNetworks ];
+	    xWifiStatus = WIFI_Scan( xScanResults, ucNumNetworks ); // Initiate scan
+
+	    configPRINT( ("Scan started\n") );
+
+	    // For each scan result, print out the SSID and RSSI
+	    if ( xWifiStatus == eWiFiSuccess )
+	    {
+	        configPRINT( ("Scan success\n") );
+	        for ( uint8_t i=0; i<ucNumNetworks; i++ )
+	        {
+	            configPRINTF( ("%s : %d \n", xScanResults[i].cSSID, xScanResults[i].cRSSI) );
+	        }
+	    } else {
+	        configPRINTF( ("Scan failed, status code: %d\n", (int)xWifiStatus) );
+	    }
+
+	    vTaskDelay(200);
+	}
+
+}
+#endif
 void prvWifiConnect( void )
 {
     WIFINetworkParams_t xNetworkParams;
@@ -263,27 +322,54 @@ void prvWifiConnect( void )
                             ucTempIp[ 0 ], ucTempIp[ 1 ], ucTempIp[ 2 ], ucTempIp[ 3 ] ) );
         }
     }
-    else
+    vTaskDelay( 10000 );
+    xWifiStatus = WIFI_GetGW(ucTempIp);
+    if ( eWiFiSuccess == xWifiStatus )
     {
-        /* Connection failed, configure SoftAP. */
-        configPRINTF( ( "Wi-Fi failed to connect to AP %s.\r\n", xNetworkParams.pcSSID ) );
-
-        xNetworkParams.pcSSID = wificonfigACCESS_POINT_SSID_PREFIX;
-        xNetworkParams.pcPassword = wificonfigACCESS_POINT_PASSKEY;
-        xNetworkParams.xSecurity = wificonfigACCESS_POINT_SECURITY;
-        xNetworkParams.cChannel = wificonfigACCESS_POINT_CHANNEL;
-
-        configPRINTF( ( "Connect to SoftAP %s using password %s. \r\n",
-                        xNetworkParams.pcSSID, xNetworkParams.pcPassword ) );
-
-        while( WIFI_ConfigureAP( &xNetworkParams ) != eWiFiSuccess )
-        {
-            configPRINTF( ( "Connect to SoftAP %s using password %s and configure Wi-Fi. \r\n",
-                            xNetworkParams.pcSSID, xNetworkParams.pcPassword ) );
-        }
-
-        configPRINTF( ( "Wi-Fi configuration successful. \r\n" ) );
+    	configPRINTF(( "Gateway IP acquired %d.%d.%d.%d\r\n",ucTempIp[ 0 ], ucTempIp[ 1 ], ucTempIp[ 2 ], ucTempIp[ 3 ] ));
     }
+
+    vTaskDelay( 10000 );
+//    configPRINTF(("Comes here \r\n"));
+    xWifiStatus = WIFI_Ping(ucTempIp, 3, 1000);
+
+    configPRINTF( (" Setting up the AP interface. \r\n"));
+    vTaskDelay (10000 );
+	xNetworkParams.pcSSID = wificonfigACCESS_POINT_SSID_PREFIX;
+	xNetworkParams.pcPassword = wificonfigACCESS_POINT_PASSKEY;
+	xNetworkParams.xSecurity = wificonfigACCESS_POINT_SECURITY;
+	xNetworkParams.cChannel = wificonfigACCESS_POINT_CHANNEL;
+	while( WIFI_ConfigureAP( &xNetworkParams ) != eWiFiSuccess )
+	{
+		configPRINTF( ( "Connect to SoftAP %s using password %s and configure Wi-Fi. \r\n",
+						xNetworkParams.pcSSID, xNetworkParams.pcPassword ) );
+	}
+	while( WIFI_StartAP() != eWiFiSuccess )
+	{
+		configPRINTF(( " Starting the softAP failed  \r\n" ));
+	}
+//    else
+//    {
+//    	vTaskDelay( 10000 );
+//        /* Connection failed, configure SoftAP. */
+//        configPRINTF( ( "Wi-Fi failed to connect to AP %s.\r\n", xNetworkParams.pcSSID ) );
+//
+//        xNetworkParams.pcSSID = wificonfigACCESS_POINT_SSID_PREFIX;
+//        xNetworkParams.pcPassword = wificonfigACCESS_POINT_PASSKEY;
+//        xNetworkParams.xSecurity = wificonfigACCESS_POINT_SECURITY;
+//        xNetworkParams.cChannel = wificonfigACCESS_POINT_CHANNEL;
+//
+//        configPRINTF( ( "Connect to SoftAP %s using password %s. \r\n",
+//                        xNetworkParams.pcSSID, xNetworkParams.pcPassword ) );
+//
+//        while( WIFI_ConfigureAP( &xNetworkParams ) != eWiFiSuccess )
+//        {
+//            configPRINTF( ( "Connect to SoftAP %s using password %s and configure Wi-Fi. \r\n",
+//                            xNetworkParams.pcSSID, xNetworkParams.pcPassword ) );
+//        }
+
+      configPRINTF( ( "Wi-Fi configuration successful. \r\n" ) );
+//    }
 }
 
 /*-----------------------------------------------------------*/
